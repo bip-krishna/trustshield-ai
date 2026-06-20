@@ -25,7 +25,7 @@ export default function FaceVerifyPageWrapper() {
 function FaceVerifyPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const email = searchParams.get('email') || localStorage.getItem('pending_email') || ''
+  const email = searchParams.get('email') || (typeof window !== 'undefined' ? localStorage.getItem('pending_email') : null) || ''
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [cameraActive, setCameraActive] = useState(false)
@@ -39,10 +39,12 @@ function FaceVerifyPage() {
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        setCameraActive(true)
-      }
+      setCameraActive(true)
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      }, 50)
     } catch {
       toast.error('Camera access denied')
     }

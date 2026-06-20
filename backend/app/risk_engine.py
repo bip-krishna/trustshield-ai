@@ -29,7 +29,7 @@ def calculate_login_risk(
 
     known_devices = db.query(DeviceFingerprint).filter(
         DeviceFingerprint.user_id == user.id,
-        DeviceFingerprint.is_trusted == True,
+        DeviceFingerprint.is_trusted.is_(True),
     ).all()
     known_fingerprints = [d.device_fingerprint for d in known_devices]
 
@@ -169,7 +169,10 @@ def calculate_total_risk(user: User, db: Session, context: Dict) -> Dict:
     elif total_risk <= 50:
         status = "otp_required"
     elif total_risk <= 80:
-        status = "face_required"
+        if user.face_embedding:
+            status = "face_required"
+        else:
+            status = "otp_required"
     else:
         status = "blocked"
 
