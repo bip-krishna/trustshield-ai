@@ -5,7 +5,7 @@ from datetime import datetime
 
 class UserCreate(BaseModel):
     full_name: str
-    email: str
+    email: EmailStr
     password: str
     profile_image: Optional[str] = None
     face_embedding: Optional[str] = None

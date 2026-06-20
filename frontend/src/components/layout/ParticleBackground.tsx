@@ -22,7 +22,10 @@ export default function ParticleBackground() {
     if (!ctx) return
 
     const particles: Particle[] = []
-    const particleCount = 80
+    // P-01: Reduced particle count from 80 to 50 to lower CPU usage
+    const particleCount = 50
+    // B-06: Store animation frame ID for cleanup
+    let animationFrameId: number
 
     function resize() {
       if (!canvas) return
@@ -85,14 +88,19 @@ export default function ParticleBackground() {
         }
       }
 
-      requestAnimationFrame(animate)
+      // B-06: Store the frame ID so we can cancel it on unmount
+      animationFrameId = requestAnimationFrame(animate)
     }
 
     resize()
     animate()
     window.addEventListener('resize', resize)
 
-    return () => window.removeEventListener('resize', resize)
+    // B-06: Cancel animation frame on unmount to prevent memory leak
+    return () => {
+      window.removeEventListener('resize', resize)
+      cancelAnimationFrame(animationFrameId)
+    }
   }, [])
 
   return (

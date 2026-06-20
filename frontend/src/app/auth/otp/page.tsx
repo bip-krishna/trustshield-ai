@@ -25,7 +25,7 @@ export default function OTPPageWrapper() {
 function OTPPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const email = searchParams.get('email') || localStorage.getItem('pending_email') || ''
+  const email = searchParams.get('email') || (typeof window !== 'undefined' ? localStorage.getItem('pending_email') : null) || ''
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)

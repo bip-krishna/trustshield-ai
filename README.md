@@ -28,6 +28,19 @@ An AI-powered Identity Trust Engine that continuously evaluates user trust durin
 - Docker & Docker Compose installed
 - Or Python 3.11+ and Node.js 20+
 
+### Environment Setup
+
+> **⚠️ Security Notice:** Before running the application, you MUST configure your environment variables.
+
+```bash
+# Copy the environment template
+cp .env.example .env
+
+# Edit .env and set a strong SECRET_KEY and ADMIN_PASSWORD
+# Generate a secret key:
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
 ### Using Docker (Recommended)
 
 ```bash
@@ -56,10 +69,9 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-## Default Admin Credentials
+## Admin Access
 
-- Email: admin@trustshield.ai
-- Password: admin123
+Admin credentials are configured via environment variables (`ADMIN_EMAIL` and `ADMIN_PASSWORD` in your `.env` file). See `.env.example` for details.
 
 ## Risk Decision Engine
 
@@ -84,7 +96,7 @@ npm run dev
 - `POST /api/otp/send` - Send OTP email
 - `POST /api/otp/verify` - Verify OTP code
 - `POST /api/face/verify` - Verify face embedding
-- `POST /api/face/enroll` - Enroll face embedding
+- `POST /api/face/enroll` - Enroll face embedding (requires auth)
 - `POST /api/transactions/create` - Create transaction with risk check
 - `GET /api/users/dashboard` - User dashboard data
 - `GET /api/admin/*` - Admin endpoints

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
-from ..models import User, LoginHistory, Transaction, RiskEvent
+from ..models import User, LoginHistory, Transaction, RiskEvent, DeviceFingerprint
 from ..schemas import UserResponse, LoginHistoryResponse, TransactionResponse, RiskEventResponse
 from ..auth import get_current_user
 
@@ -26,11 +26,10 @@ async def get_dashboard(
         RiskEvent.user_id == current_user.id,
     ).order_by(RiskEvent.created_at.desc()).limit(10).all()
 
-    devices = db.query(type("DeviceImport", (), {})) if False else []
-    from ..models import DeviceFingerprint
+    # B-05: Use .is_(True) for proper SQLAlchemy boolean comparison
     trusted_devices = db.query(DeviceFingerprint).filter(
         DeviceFingerprint.user_id == current_user.id,
-        DeviceFingerprint.is_trusted == True,
+        DeviceFingerprint.is_trusted.is_(True),
     ).all()
 
     return {

@@ -5,7 +5,7 @@ import numpy as np
 from ..database import get_db
 from ..models import User
 from ..schemas import FaceVerifyRequest
-from ..auth import create_access_token
+from ..auth import create_access_token, get_current_user
 
 router = APIRouter(prefix="/api/face", tags=["Face Verification"])
 
@@ -43,7 +43,7 @@ async def verify_face(data: FaceVerifyRequest, db: Session = Depends(get_db)):
         user.last_login = datetime.utcnow()
         db.commit()
 
-        token = create_access_token({"sub": user.id})
+        token = create_access_token({"sub": str(user.id)})
         from ..schemas import UserResponse
         return {
             "verified": True,
@@ -61,13 +61,22 @@ async def verify_face(data: FaceVerifyRequest, db: Session = Depends(get_db)):
         }
 
 
+# S-12: Face enrollment now requires authentication — prevents
+# attackers from overwriting another user's face embedding by knowing their email
 @router.post("/enroll")
-async def enroll_face(data: FaceVerifyRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == data.email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+async def enroll_face(
+    data: FaceVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Only allow users to enroll their own face
+    if data.email != current_user.email:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only enroll your own face embedding",
+        )
 
-    user.face_embedding = data.face_embedding
+    current_user.face_embedding = data.face_embedding
     db.commit()
 
     return {"message": "Face enrolled successfully"}

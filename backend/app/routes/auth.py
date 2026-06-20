@@ -7,12 +7,22 @@ from ..schemas import UserCreate, UserLogin, TokenResponse, UserResponse
 from ..auth import hash_password, verify_password, create_access_token, get_current_user
 from ..risk_engine import calculate_total_risk
 from ..services.geoip import get_location_from_ip
+from ..config import MIN_PASSWORD_LENGTH
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+MAX_FAILED_ATTEMPTS = 10
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(data: UserCreate, db: Session = Depends(get_db)):
+    # S-17: Password strength validation
+    if len(data.password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters",
+        )
+
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -28,7 +38,7 @@ async def register(data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": user.id})
+    token = create_access_token({"sub": str(user.id)})
     return TokenResponse(
         access_token=token,
         user=UserResponse.model_validate(user),
@@ -39,7 +49,18 @@ async def register(data: UserCreate, db: Session = Depends(get_db)):
 async def login(data: UserLogin, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.password_hash):
+        # S-18/B-01: Increment failed login attempts
+        if user:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # S-19: Account lockout after too many failed attempts
+    if user.failed_login_attempts and user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+        raise HTTPException(
+            status_code=403,
+            detail="Account locked due to too many failed attempts. Contact admin.",
+        )
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is suspended")
@@ -96,7 +117,7 @@ async def login(data: UserLogin, request: Request, db: Session = Depends(get_db)
     if risk_result["status"] == "allowed":
         user.failed_login_attempts = 0
         user.last_login = datetime.utcnow()
-        token = create_access_token({"sub": user.id})
+        token = create_access_token({"sub": str(user.id)})
         db.commit()
 
         return {

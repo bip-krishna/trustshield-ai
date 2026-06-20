@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List, Optional
+import secrets
 from ..database import get_db
 from ..models import User, DeviceFingerprint, LoginHistory, Transaction, AuditLog, RiskEvent
 from ..schemas import UserResponse, DeviceResponse, AuditLogResponse
@@ -61,6 +62,9 @@ async def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    # S-08: Prevent admin from deleting themselves
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
     audit = AuditLog(
         admin_id=admin.id,
         action=f"Deleted user {user.email}",
@@ -81,8 +85,10 @@ async def reset_password(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    new_password = "TrustShield@123"
+    # S-07: Generate secure random password instead of hardcoded one
+    new_password = secrets.token_urlsafe(12)
     user.password_hash = hash_password(new_password)
+    user.failed_login_attempts = 0  # Reset lockout on password reset
     audit = AuditLog(
         admin_id=admin.id,
         action=f"Reset password for user {user.email}",
@@ -90,7 +96,10 @@ async def reset_password(
     )
     db.add(audit)
     db.commit()
-    return {"message": "Password reset", "new_password": new_password}
+    # S-07: Return new password only to admin (in production, send via email instead)
+    import logging
+    logging.info(f"Password reset for user {user.email} by admin {admin.email}")
+    return {"message": "Password reset successfully", "new_password": new_password}
 
 
 @router.get("/devices")
